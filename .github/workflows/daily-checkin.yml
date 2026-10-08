@@ -1,0 +1,66 @@
+name: 每日签到
+
+# ─────────────────────────────────────────────────────────────
+# GitHub 的定时任务只能用固定 cron，"随机时间"这样实现：
+#   这个 workflow 在 08:00~12:50（北京时间）之间每 10 分钟跑一次；
+#   checkin.js 用当天日期算出"今天上午的随机时刻"，
+#   到点之前的那几次运行会直接跳过（几秒钟结束），
+#   到点之后的那一次才真正执行签到。
+#   万一某次运行失败，后面还有十几次机会自动补签。
+#
+# 00:00~04:50 UTC = 08:00~12:50 北京时间（GitHub 的 cron 用 UTC）
+# ─────────────────────────────────────────────────────────────
+on:
+  schedule:
+    - cron: '*/10 0-4 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略随机时间，立即签到'
+        type: boolean
+        default: true
+
+# 避免多次运行挤在一起互相打断
+concurrency:
+  group: daily-checkin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TZ: Asia/Shanghai
+      FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || 'false' }}
+      # 想改随机时间段，改这两行即可（北京时间）
+      WINDOW_START: '08:00'
+      WINDOW_END: '11:30'
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 检查是否配置了账号密码
+        env:
+          U: ${{ secrets.JINALE_USERNAME }}
+          P: ${{ secrets.JINALE_PASSWORD }}
+        run: |
+          if [ -z "$U" ] || [ -z "$P" ]; then
+            echo "::error title=还没配置账号密码::请到仓库 Settings → Secrets and variables → Actions → New repository secret 添加 JINALE_USERNAME 和 JINALE_PASSWORD 两个 Secret。"
+            exit 1
+          fi
+
+      - name: 执行签到
+        env:
+          JINALE_USERNAME: ${{ secrets.JINALE_USERNAME }}
+          JINALE_PASSWORD: ${{ secrets.JINALE_PASSWORD }}
+        run: node checkin.js

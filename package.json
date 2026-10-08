@@ -1,0 +1,14 @@
+{
+  "name": "jinale-daily-checkin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "my-aime.cn (JINALE) 每日自动签到，供 GitHub Actions 定时调用",
+  "main": "checkin.js",
+  "scripts": {
+    "checkin": "node checkin.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
